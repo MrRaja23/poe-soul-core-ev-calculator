@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PoE Soul Core EV Calculator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>PoE Soul Core Reforge EV Calculator</h1>
+        
+        <!-- High-Value Cores -->
+        <div class="input-group">
+            <h3>High-Value Cores</h3>
+            <input type="number" id="core1" placeholder="Core 1 (ex)" value="64">
+            <input type="number" id="core2" placeholder="Core 2 (ex)" value="41">
+            <input type="number" id="core3" placeholder="Core 3 (ex)" value="412">
+        </div>
+
+        <!-- Low-Value Core -->
+        <div class="input-group">
+            <h3>Low-Value Core</h3>
+            <input type="number" id="lowValue" placeholder="Value (ex)" value="9">
+        </div>
+
+        <!-- Calculate Button -->
+        <button onclick="calculateEV()">Calculate EV</button>
+
+        <!-- Result -->
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function calculateEV() {
+            // Get input values
+            const highValues = [
+                parseFloat(document.getElementById('core1').value),
+                parseFloat(document.getElementById('core2').value),
+                parseFloat(document.getElementById('core3').value)
+            ];
+            const lowValue = parseFloat(document.getElementById('lowValue').value);
+
+            // Auto-calculate costs
+            const initialCost = lowValue * 3; // 3 low-value cores
+            const subsequentCost = lowValue * 2; // 2 additional cores per retry
+
+            // Calculate average high-value core
+            const avgHighValue = highValues.reduce((a, b) => a + b, 0) / highValues.length;
+
+            // Probabilities
+            const pHigh = 3 / 15; // 1/5 chance
+            const pLow = 12 / 15; // 4/5 chance
+
+            // Solve EV equations (EV per reforge)
+            // EV = pHigh*(Profit) + pLow*(Loss + EV_retry)
+            // For retries: EV_retry = pHigh*(Profit_retry) + pLow*(Loss_retry + EV_retry)
+            const EV_retry = (pHigh * (avgHighValue - subsequentCost) - pLow * subsequentCost) / (1 - pLow);
+            const EV_total = pHigh * (avgHighValue - initialCost) + pLow * (-initialCost + EV_retry);
+
+            // Divide by average number of reforges (1/pHigh = 5) to get EV per reforge
+            const EV_per_reforge = EV_total / (1 / pHigh); 
+
+            // Display result
+            document.getElementById('result').innerHTML = `
+                <p>Initial Reforge Cost: <strong>${initialCost} ex</strong></p>
+                <p>Subsequent Reforge Cost: <strong>${subsequentCost} ex</strong></p>
+                <p>EV per Reforge: <strong>${EV_per_reforge.toFixed(2)} exalts</strong></p>
+            `;
+        }
+    </script>
+</body>
+</html>
