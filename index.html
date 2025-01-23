@@ -13,22 +13,42 @@
         <!-- High-Value Cores -->
         <div class="input-group">
             <h3>High-Value Cores - Rarity , Mana , All Res 3/15</h3>
-            <input type="number" id="core1" placeholder="Core 1 (ex)" value="413">
-            <input type="number" id="core2" placeholder="Core 2 (ex)" value="64">
-            <input type="number" id="core3" placeholder="Core 3 (ex)" value="42">
+            <input type="number" id="core1" placeholder="Core 1 (ex)" value="398">
+            <input type="number" id="core2" placeholder="Core 2 (ex)" value="63">
+            <input type="number" id="core3" placeholder="Core 3 (ex)" value="41">
         </div>
 
         <!-- Low-Value Core -->
         <div class="input-group">
             <h3>Low-Value Core - the rest share the same value 12/15</h3>
-            <input type="number" id="lowValue" placeholder="Value (ex)" value="9">
+            <input type="number" id="lowValue" placeholder="Value (ex)" value="9.5">
         </div>
 
         <!-- Calculate Button -->
         <button onclick="calculateEV()">Calculate EV</button>
 
-        <!-- Result -->
+        <!-- EV Result -->
         <div id="result"></div>
+
+		<!-- Simulation Section -->
+		<div class="input-group">
+			<h3>Simulation Parameters</h3>
+			
+			<div class="simulation-input">
+				<label for="totalExalts">Total Exalts Available:</label>
+				<input type="number" id="totalExalts" value="1000">
+			</div>
+			
+			<div class="simulation-input">
+				<label for="numSimulations">Number of Simulations:</label>
+				<input type="number" id="numSimulations" value="1000">
+			</div>
+			
+			<button onclick="runSimulation()">Run Simulation</button>
+		</div>
+
+        <!-- Simulation Results -->
+        <div id="simulationResult"></div>
     </div>
 
     <script>
@@ -42,23 +62,14 @@
             const lowValue = parseFloat(document.getElementById('lowValue').value);
 
             // Auto-calculate costs
-            const initialCost = lowValue * 3; // 3 low-value cores
-            const subsequentCost = lowValue * 2; // 2 additional cores per retry
-
-            // Calculate average high-value core
+            const initialCost = lowValue * 3;
+            const subsequentCost = lowValue * 2;
             const avgHighValue = highValues.reduce((a, b) => a + b, 0) / highValues.length;
+            const pHigh = 3 / 15;
 
-            // Probabilities
-            const pHigh = 3 / 15; // 1/5 chance
-            const pLow = 12 / 15; // 4/5 chance
-
-            // Solve EV equations (EV per reforge)
-            // EV = pHigh*(Profit) + pLow*(Loss + EV_retry)
-            // For retries: EV_retry = pHigh*(Profit_retry) + pLow*(Loss_retry + EV_retry)
-            const EV_retry = (pHigh * (avgHighValue - subsequentCost) - pLow * subsequentCost) / (1 - pLow);
-            const EV_total = pHigh * (avgHighValue - initialCost) + pLow * (-initialCost + EV_retry);
-
-            // Divide by average number of reforges (1/pHigh = 5) to get EV per reforge
+            // EV calculations
+            const EV_retry = (pHigh * (avgHighValue - subsequentCost) - (1 - pHigh) * subsequentCost) / (1 - (1 - pHigh));
+            const EV_total = pHigh * (avgHighValue - initialCost) + (1 - pHigh) * (-initialCost + EV_retry);
             const EV_per_reforge = EV_total / (1 / pHigh); 
 
             // Display result
@@ -68,6 +79,103 @@
                 <p>EV per Reforge: <strong>${EV_per_reforge.toFixed(2)} exalts</strong></p>
             `;
         }
-    </script>
+
+		function runSimulation() {
+			const highValues = [
+				parseFloat(document.getElementById('core1').value),
+				parseFloat(document.getElementById('core2').value),
+				parseFloat(document.getElementById('core3').value)
+			];
+			const lowValue = parseFloat(document.getElementById('lowValue').value);
+			const totalExalts = parseFloat(document.getElementById('totalExalts').value);
+
+			const initialCost = lowValue * 3;
+			const subsequentCost = lowValue * 2;
+			const pHigh = 3/15;
+
+			// Auto-scale simulations based on investment size
+			const numSimulations = Math.min(10000, Math.max(1000, Math.floor(totalExalts / 10)));
+			let firstRunResult = null;
+			let lastRunResult = null;
+
+			let metrics = {
+				totalNetProfit: 0,
+				totalEndingExalts: 0,
+				totalReforges: 0,
+				totalSuccesses: 0
+			};
+
+			for(let i = 0; i < numSimulations; i++) {
+				let currentExalts = totalExalts;
+				let highValueProfit = 0;
+				let reforgesThisRun = 0;
+				let successesThisRun = 0;
+
+				while(currentExalts >= initialCost) {
+					// Attempt reforge
+					currentExalts -= initialCost;
+					reforgesThisRun++;
+
+					if(Math.random() < pHigh) {
+						const value = highValues[Math.floor(Math.random() * 3)];
+						highValueProfit += value;
+						successesThisRun++;
+						continue;
+					}
+
+					// Retry loop
+					while(currentExalts >= subsequentCost) {
+						currentExalts -= subsequentCost;
+						reforgesThisRun++;
+
+						if(Math.random() < pHigh) {
+							const value = highValues[Math.floor(Math.random() * 3)];
+							highValueProfit += value;
+							successesThisRun++;
+							break;
+						}
+					}
+				}
+
+				const netProfit = highValueProfit - (totalExalts - currentExalts);
+				const endingExalts = totalExalts + netProfit;
+
+				// Store first/last run results
+				if(i === 0) firstRunResult = { netProfit, endingExalts };
+				if(i === numSimulations - 1) lastRunResult = { netProfit, endingExalts };
+
+				// Update metrics
+				metrics.totalNetProfit += netProfit;
+				metrics.totalEndingExalts += endingExalts;
+				metrics.totalReforges += reforgesThisRun;
+				metrics.totalSuccesses += successesThisRun;
+			}
+
+			// Calculate averages
+			const avgResults = {
+				netProfit: metrics.totalNetProfit / numSimulations,
+				endingExalts: metrics.totalEndingExalts / numSimulations,
+				reforges: metrics.totalReforges / numSimulations,
+				successes: metrics.totalSuccesses / numSimulations,
+				evPerReforge: metrics.totalNetProfit / metrics.totalReforges || 0
+			};
+
+			// Display results
+			document.getElementById('simulationResult').innerHTML = `
+				<h3>Aggregate Results (${numSimulations} auto-scaled runs)</h3>
+				<p>Avg. Net Profit: <strong>${avgResults.netProfit.toFixed(1)}ex</strong></p>
+				<p>Avg. Final Exalts: <strong>${avgResults.endingExalts.toFixed(1)}ex</strong></p>
+				<p>Avg. Reforge Attempts: <strong>${avgResults.reforges.toFixed(1)}</strong></p>
+
+				<h3>First Run Example</h3>
+				<p>${totalExalts.toFixed(1)}ex + ${firstRunResult.netProfit.toFixed(1)}ex = 
+				<strong>${firstRunResult.endingExalts.toFixed(1)}ex</strong></p>
+
+				<h3>Last Run Example</h3>
+				<p>${totalExalts.toFixed(1)}ex + ${lastRunResult.netProfit.toFixed(1)}ex = 
+				<strong>${lastRunResult.endingExalts.toFixed(1)}ex</strong></p>
+			`;
+		}
+</script>
 </body>
 </html>
