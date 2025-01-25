@@ -5,54 +5,75 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PoE Soul Core EV Calculator</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .container {
+            display: flex;
+            justify-content: space-between;
+        }
+        .calculator {
+            width: 25%;
+        }
+        .ev-comparison {
+            text-align: center;
+            font-size: 1.2em;
+        }
+    </style>
 </head>
 <body>
+
+
     <div class="container">
-        <h1>PoE Soul Core Reforge EV Calculator</h1>
         
-        <!-- High-Value Cores -->
+		<!-- Old Calculator -->
+        <div class="calculator">
+            <h1>Old PoE Soul Core Reforge EV Calculator</h1>
+            <button onclick="calculateOldEV()">Calculate EV</button>
+            <div id="old_result"></div>
+        </div>
+		
+		<!-- Combined Input Fields -->
         <div class="input-group">
-            <h3>High-Value Cores - Rarity , Mana , All Res 3/15</h3>
-            <input type="number" id="core1" placeholder="Core 1 (ex)" value="398">
-            <input type="number" id="core2" placeholder="Core 2 (ex)" value="63">
-            <input type="number" id="core3" placeholder="Core 3 (ex)" value="41">
+            <h3>Core Values</h3>
+            <h4>Rarity Value:</h4><input type="number" id="core1" placeholder="Core 1 (ex)" value="410" oninput="syncValues()">
+            <h4>Mana Value:</h4><input type="number" id="core2" placeholder="Core 2 (ex)" value="64" oninput="syncValues()">
+            <h4>All Res. Value:</h4><input type="number" id="core3" placeholder="Core 3 (ex)" value="38" oninput="syncValues()">
+            <h4>Other Core Value:</h4><input type="number" id="lowValue" placeholder="Low-Value Core (ex)" value="10" oninput="syncValues()">
         </div>
 
-        <!-- Low-Value Core -->
-        <div class="input-group">
-            <h3>Low-Value Core - the rest share the same value 12/15</h3>
-            <input type="number" id="lowValue" placeholder="Value (ex)" value="9.5">
+
+        <!-- EV Comparison -->
+        <div class="ev-comparison">
+            <h2>EV Comparison</h2>
+            <div id="ev_comparison_result"></div>
         </div>
 
-        <!-- Calculate Button -->
-        <button onclick="calculateEV()">Calculate EV</button>
-
-        <!-- EV Result -->
-        <div id="result"></div>
-
-		<!-- Simulation Section -->
-		<div class="input-group">
-			<h3>Simulation Parameters</h3>
-			
-			<div class="simulation-input">
-				<label for="totalExalts">Total Exalts Available:</label>
-				<input type="number" id="totalExalts" value="1000">
-			</div>
-			
-			<div class="simulation-input">
-				<label for="numSimulations">Number of Simulations:</label>
-				<input type="number" id="numSimulations" value="1000">
-			</div>
-			
-			<button onclick="runSimulation()">Run Simulation</button>
-		</div>
-
-        <!-- Simulation Results -->
-        <div id="simulationResult"></div>
+        <!-- New Calculator -->
+        <div class="calculator">
+            <h1>New PoE Soul Core Reforge EV Calculator</h1>
+            <button onclick="calculateNewEV()">Calculate EV</button>
+            <div id="new_result"></div>
+        </div>
     </div>
 
     <script>
-        function calculateEV() {
+        function syncValues() {
+            // Synchronize values between old and new core input fields
+            const core1 = document.getElementById('core1').value;
+            const core2 = document.getElementById('core2').value;
+            const core3 = document.getElementById('core3').value;
+            const lowValue = document.getElementById('lowValue').value;
+
+            document.getElementById('old_core1').value = core1;
+            document.getElementById('new_core1').value = core1;
+            document.getElementById('old_core2').value = core2;
+            document.getElementById('new_core2').value = core2;
+            document.getElementById('old_core3').value = core3;
+            document.getElementById('new_core3').value = core3;
+            document.getElementById('old_lowValue').value = lowValue;
+            document.getElementById('new_lowValue').value = lowValue;
+        }
+
+        function calculateOldEV() {
             // Get input values
             const highValues = [
                 parseFloat(document.getElementById('core1').value),
@@ -70,112 +91,81 @@
             // EV calculations
             const EV_retry = (pHigh * (avgHighValue - subsequentCost) - (1 - pHigh) * subsequentCost) / (1 - (1 - pHigh));
             const EV_total = pHigh * (avgHighValue - initialCost) + (1 - pHigh) * (-initialCost + EV_retry);
-            const EV_per_reforge = EV_total / (1 / pHigh); 
+            const EV_per_reforge = EV_total / (1 / pHigh);
 
             // Display result
-            document.getElementById('result').innerHTML = `
+            document.getElementById('old_result').innerHTML = `
                 <p>Initial Reforge Cost: <strong>${initialCost} ex</strong></p>
                 <p>Subsequent Reforge Cost: <strong>${subsequentCost} ex</strong></p>
                 <p>EV per Reforge: <strong>${EV_per_reforge.toFixed(2)} exalts</strong></p>
             `;
+            document.getElementById('ev_comparison_result').innerHTML = `
+                <p>EV Value: New (${calculateNewEVValue().toFixed(2)}) to Old (${EV_per_reforge.toFixed(2)}) exalts</p>
+            `;
         }
 
-		function runSimulation() {
-			const highValues = [
-				parseFloat(document.getElementById('core1').value),
-				parseFloat(document.getElementById('core2').value),
-				parseFloat(document.getElementById('core3').value)
-			];
-			const lowValue = parseFloat(document.getElementById('lowValue').value);
-			const totalExalts = parseFloat(document.getElementById('totalExalts').value);
+        function calculateNewEV() {
+            // Get input values
+            const highValues = [
+                parseFloat(document.getElementById('core1').value),
+                parseFloat(document.getElementById('core2').value),
+                parseFloat(document.getElementById('core3').value)
+            ];
+            const lowValue = parseFloat(document.getElementById('lowValue').value);
 
-			const initialCost = lowValue * 3;
-			const subsequentCost = lowValue * 2;
-			const pHigh = 3/15;
+            // Auto-calculate costs
+            const initialCost = lowValue * 3;
+            const subsequentCost = lowValue * 2;
+            const avgHighValue = highValues.reduce((a, b) => a + b, 0) / highValues.length;
+            const pHigh = 2 / 15;
 
-			// Auto-scale simulations based on investment size
-			const numSimulations = Math.min(10000, Math.max(1000, Math.floor(totalExalts / 10)));
-			let firstRunResult = null;
-			let lastRunResult = null;
+            // EV calculations
+            const EV_retry = (pHigh * (avgHighValue - subsequentCost) - (1 - pHigh) * subsequentCost) / (1 - (1 - pHigh));
+            const EV_total = pHigh * (avgHighValue - initialCost) + (1 - pHigh) * (-initialCost + EV_retry);
+            const EV_per_reforge = EV_total / (1 / pHigh); 
 
-			let metrics = {
-				totalNetProfit: 0,
-				totalEndingExalts: 0,
-				totalReforges: 0,
-				totalSuccesses: 0
-			};
+            // Display result
+            document.getElementById('new_result').innerHTML = `
+                <p>Initial Reforge Cost: <strong>${initialCost} ex</strong></p>
+                <p>Subsequent Reforge Cost: <strong>${subsequentCost} ex</strong></p>
+                <p>EV per Reforge: <strong>${EV_per_reforge.toFixed(2)} exalts</strong></p>
+            `;
+            document.getElementById('ev_comparison_result').innerHTML = `
+                <p>EV Value: New (${EV_per_reforge.toFixed(2)}) to Old (${calculateOldEVValue().toFixed(2)}) exalts</p>
+            `;
+        }
 
-			for(let i = 0; i < numSimulations; i++) {
-				let currentExalts = totalExalts;
-				let highValueProfit = 0;
-				let reforgesThisRun = 0;
-				let successesThisRun = 0;
+        function calculateNewEVValue() {
+            const highValues = [
+                parseFloat(document.getElementById('core1').value),
+                parseFloat(document.getElementById('core2').value),
+                parseFloat(document.getElementById('core3').value)
+            ];
+            const lowValue = parseFloat(document.getElementById('lowValue').value);
+            const initialCost = lowValue * 3;
+            const subsequentCost = lowValue * 2;
+            const avgHighValue = highValues.reduce((a, b) => a + b, 0) / highValues.length;
+            const pHigh = 2 / 15;
+            const EV_retry = (pHigh * (avgHighValue - subsequentCost) - (1 - pHigh) * subsequentCost) / (1 - (1 - pHigh));
+            const EV_total = pHigh * (avgHighValue - initialCost) + (1 - pHigh) * (-initialCost + EV_retry);
+            return EV_total / (1 / pHigh);
+        }
 
-				while(currentExalts >= initialCost) {
-					// Attempt reforge
-					currentExalts -= initialCost;
-					reforgesThisRun++;
-
-					if(Math.random() < pHigh) {
-						const value = highValues[Math.floor(Math.random() * 3)];
-						highValueProfit += value;
-						successesThisRun++;
-						continue;
-					}
-
-					// Retry loop
-					while(currentExalts >= subsequentCost) {
-						currentExalts -= subsequentCost;
-						reforgesThisRun++;
-
-						if(Math.random() < pHigh) {
-							const value = highValues[Math.floor(Math.random() * 3)];
-							highValueProfit += value;
-							successesThisRun++;
-							break;
-						}
-					}
-				}
-
-				const netProfit = highValueProfit - (totalExalts - currentExalts);
-				const endingExalts = totalExalts + netProfit;
-
-				// Store first/last run results
-				if(i === 0) firstRunResult = { netProfit, endingExalts };
-				if(i === numSimulations - 1) lastRunResult = { netProfit, endingExalts };
-
-				// Update metrics
-				metrics.totalNetProfit += netProfit;
-				metrics.totalEndingExalts += endingExalts;
-				metrics.totalReforges += reforgesThisRun;
-				metrics.totalSuccesses += successesThisRun;
-			}
-
-			// Calculate averages
-			const avgResults = {
-				netProfit: metrics.totalNetProfit / numSimulations,
-				endingExalts: metrics.totalEndingExalts / numSimulations,
-				reforges: metrics.totalReforges / numSimulations,
-				successes: metrics.totalSuccesses / numSimulations,
-				evPerReforge: metrics.totalNetProfit / metrics.totalReforges || 0
-			};
-
-			// Display results
-			document.getElementById('simulationResult').innerHTML = `
-				<h3>Aggregate Results (${numSimulations} auto-scaled runs)</h3>
-				<p>Avg. Net Profit: <strong>${avgResults.netProfit.toFixed(1)}ex</strong></p>
-				<p>Avg. Final Exalts: <strong>${avgResults.endingExalts.toFixed(1)}ex</strong></p>
-				<p>Avg. Reforge Attempts: <strong>${avgResults.reforges.toFixed(1)}</strong></p>
-
-				<h3>First Run Example</h3>
-				<p>${totalExalts.toFixed(1)}ex + ${firstRunResult.netProfit.toFixed(1)}ex = 
-				<strong>${firstRunResult.endingExalts.toFixed(1)}ex</strong></p>
-
-				<h3>Last Run Example</h3>
-				<p>${totalExalts.toFixed(1)}ex + ${lastRunResult.netProfit.toFixed(1)}ex = 
-				<strong>${lastRunResult.endingExalts.toFixed(1)}ex</strong></p>
-			`;
-		}
-</script>
+        function calculateOldEVValue() {
+            const highValues = [
+                parseFloat(document.getElementById('core1').value),
+                parseFloat(document.getElementById('core2').value),
+                parseFloat(document.getElementById('core3').value)
+            ];
+            const lowValue = parseFloat(document.getElementById('lowValue').value);
+            const initialCost = lowValue * 3;
+            const subsequentCost = lowValue * 2;
+            const avgHighValue = highValues.reduce((a, b) => a + b, 0) / highValues.length;
+            const pHigh = 3 / 15;
+            const EV_retry = (pHigh * (avgHighValue - subsequentCost) - (1 - pHigh) * subsequentCost) / (1 - (1 - pHigh));
+            const EV_total = pHigh * (avgHighValue - initialCost) + (1 - pHigh) * (-initialCost + EV_retry);
+            return EV_total / (1 / pHigh);
+        }
+    </script>
 </body>
 </html>
